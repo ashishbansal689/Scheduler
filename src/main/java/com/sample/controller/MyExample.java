@@ -7,14 +7,16 @@ import static org.quartz.TriggerBuilder.newTrigger;
 import java.util.Properties;
 
 import org.quartz.Job;
+import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
+import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.Trigger;
+import org.quartz.TriggerKey;
 import org.quartz.impl.StdSchedulerFactory;
-import org.quartz.impl.jdbcjobstore.InvalidConfigurationException;
 import org.quartz.impl.jdbcjobstore.JobStoreTX;
 
 public class MyExample implements Job{
@@ -32,6 +34,7 @@ public class MyExample implements Job{
 	        prop.setProperty("org.quartz.jobStore.misfireThreshold", "60000");
 	        prop.setProperty("org.quartz.jobStore.isClustered", "false");
 	        prop.setProperty("org.quartz.threadPool.threadCount", "4");
+	        prop.setProperty("org.quartz.jobStore.useProperties", "true");
 
 	        prop.setProperty("org.quartz.dataSource.tasksDataStore.driver", 
 	             "org.postgresql.Driver");
@@ -42,30 +45,37 @@ public class MyExample implements Job{
 	        prop.setProperty("org.quartz.dataSource.tasksDataStore.maxConnections", "20");
 	        
 		Scheduler scheduler = new StdSchedulerFactory(prop).getScheduler();
-		scheduler.start();
 		
-		JobStoreTX jobStore = new JobStoreTX();
+	
+
+		JobStoreTX store = new JobStoreTX();
 		
-		try {
-			jobStore.setDriverDelegateClass("sdfsd");
-		} catch (InvalidConfigurationException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		JobKey jobKey = new JobKey("dummyJobName2", "group2");
+		
+		JobDataMap map = new JobDataMap();
+		map.put("data", "THis is first");
 		 // define the job and tie it to our HelloJob class
 		  JobDetail job = newJob(MyExample.class)
-		      .withIdentity("myJob", "group1")
+		      .withIdentity(jobKey)
+		      .withDescription("This is my third job to be executed")
+		      .setJobData(map)
 		      .build();
 
+		  TriggerKey triggerKey = new TriggerKey("trigger");
 		  // Trigger the job to run now, and then every 40 seconds
 		  Trigger trigger = newTrigger()
-		      .withIdentity("myTrigger", "group1")
+		      .withIdentity(triggerKey)
 		      .startNow()
 		      .withSchedule(simpleSchedule()
 		          .withIntervalInSeconds(40)
 		          .repeatForever())
 		      .build();
 
+			/*scheduler.getListenerManager().addJobListener(
+		    		new MyExample(), KeyMatcher.keyEquals(jobKey)
+		    	);
+			scheduler.start();*/
+			
 		  // Tell quartz to schedule the job using our trigger
 		  scheduler.scheduleJob(job, trigger);
 
@@ -77,5 +87,4 @@ public class MyExample implements Job{
 		System.out.println("Job is running");
 		
 	}
-
 }
