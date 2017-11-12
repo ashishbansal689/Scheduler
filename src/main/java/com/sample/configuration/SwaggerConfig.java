@@ -2,13 +2,10 @@ package com.sample.configuration;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 
-import com.wordnik.swagger.jaxrs.config.BeanConfig;
+import io.swagger.jaxrs.config.BeanConfig;
 
-
-@WebServlet(name = "SwaggerJaxrsConfig", loadOnStartup = 1)
 public class SwaggerConfig extends HttpServlet
 {
 	private static final long serialVersionUID = 1L;
@@ -19,7 +16,9 @@ public class SwaggerConfig extends HttpServlet
 	            super.init(servletConfig);
 	            
 	            BeanConfig beanConfig = new BeanConfig();
-	            beanConfig.setBasePath("http://localhost:8080/springproject/");
+	            beanConfig.setBasePath("/scheduler/rest/");
+	            beanConfig.setHost("localhost:8080");
+	            beanConfig.setSchemes(new String[]{"http"});
 	            beanConfig.setVersion("1.0.0");
 	            beanConfig.setScan(true);
 	            beanConfig.setResourcePackage("com.sample.controller");
