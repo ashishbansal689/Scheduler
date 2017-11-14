@@ -11,10 +11,10 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -27,12 +27,14 @@ import org.quartz.SchedulerException;
 import org.quartz.Trigger;
 import org.quartz.TriggerKey;
 import org.quartz.impl.StdSchedulerFactory;
+import org.quartz.impl.matchers.GroupMatcher;
 import org.reflections.Reflections;
 
 import com.google.gson.Gson;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 
@@ -50,13 +52,29 @@ public class GeneralApi {
 	@ApiOperation(value = "Schedule a job", notes = "It schedules a background job according to given information about the job")
 	@ApiResponses(value = { @ApiResponse(code = 200, message = "Job has been scheduled with the name of job"),
 			@ApiResponse(code = 500, message = "Will show the error message") })
-	public Response scheduleJob(@HeaderParam("JobClassName") String nameOfTheClass) 
+	public Response scheduleJob(@ApiParam(value = "Select Yes/No to schedule a job using CRON expression. If no selected then simple trigger will be used.", allowableValues = "Yes,No", defaultValue="No") 
+			@QueryParam("isCronJob") String isCronJob,
+			@ApiParam(value = "This is the name of the class which can be scheduled in the background", required = true )
+			@QueryParam("className")  String nameOfTheClass,
+			@ApiParam(value = "Add description of the job") 
+			@QueryParam("description")
+			String description,
+			@ApiParam(value = "Specify interval if job is not CRON and it should be integer value")
+			@QueryParam("runningInterval")
+			Integer interval
+			)
 	{
 		try {
 			if(scheduler == null)
 				scheduler = new StdSchedulerFactory().getScheduler(); 
-            
+			
 			JobKey key = new JobKey(nameOfTheClass);
+			if(scheduler.getJobDetail(key) != null)
+			{
+				System.out.println(scheduler.getTriggerState(new TriggerKey(nameOfTheClass)));
+				scheduler.deleteJob(key);
+			}
+			
             Class<? extends Job> className = allJobClassesMap.get(nameOfTheClass);
             JobDetail jobDetail = newJob(className)
             		.withIdentity(key)
@@ -75,7 +93,6 @@ public class GeneralApi {
             		build();
             
             scheduler.start();
-            scheduler.addJob(jobDetail, true);
             scheduler.scheduleJob(jobDetail, trigger);
             
         }
@@ -123,14 +140,28 @@ public class GeneralApi {
 		{
 			if(scheduler != null && scheduler.isShutdown() == false)
 			{
+				for (String groupName : scheduler.getJobGroupNames()) {
+	       	         for (JobKey jobKey : scheduler.getJobKeys(
+	    	    		 GroupMatcher.jobGroupEquals(groupName))) {    	 
+	    		  String jobName = jobKey.getName();
+	    		  String jobGroup = jobKey.getGroup();
+	    		  scheduler.getTriggersOfJob(jobKey).get(0).getNextFireTime()
+	 
+	    		  /*List triggers = (List) 
+	    				  scheduler.getTriggersOfJob(jobKey);
+	    		  Date nextFireTime = triggers.get(0).getNextFireTime();*/
+	    		 /* System.out.println("Job : " + jobName + ", Group : "
+	    				+ jobGroup + ", Next execution time : "
+	    					+ nextFireTime)*/; 
+	   	      }  
+				}   
 				List<JobExecutionContext> allRunningJobs = scheduler.getCurrentlyExecutingJobs();
 				for(JobExecutionContext context : allRunningJobs)
 				{
 					allRunningJobsMap.put(context.getJobDetail().getKey().getName(), context.getJobDetail().getDescription());
 				}
 			}
-			
-		} 
+		}	
 		catch (SchedulerException e) {
 			return Response.status(500).entity(new Gson().toJson("Something went wrong while getting are the running jobs. Error cause was " + e.getMessage())).build();
 		}
